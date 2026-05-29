@@ -1,19 +1,29 @@
-# v2.0
-# делать на внешнем пк или контейнере где есть sshpass curl scp unzip
-# проверяет версию через ssh затем скачивает main и распаковывает extra у себя и закачивает на микрот в указанную папку (для капсман) после чего подчищает у себя zip npk. Есть проверка на версию, не тратит трафик если версия не менялась.
-# >npk-fw_uploader.sh
-# chmod +x npk-fw_uploader.sh
-# Конфигурация
+###############################################################################
+# НАЗНАЧЕНИЕ: Автоматическое скачивание и загрузка обновлений RouterOS на MikroTik.
+#
+# РАБОТА СКРИПТА:
+# 1. Опрашивает MikroTik по SSH, узнает текущую версию ПО.
+# 2. Скачивает основной NPK и ZIP с extra-пакетами с download.mikrotik.com.
+# 3. Распаковывает архив, загружает все NPK на устройство через FTP.
+# 4. Очищает локальный каталог от старых версий файлов.
+# 5. Пишет историю действий в update_log.txt.
+#
+# ТРЕБОВАНИЯ И ЗАПУСК (Debian):
+# 1. Зависимости: apt install sshpass curl unzip
+# 2. Редактирование: mcedit updater.sh (заполнить блок "Конфигурация" ниже)
+# 3. Права: chmod +x updater.sh
+# 4. Запуск: ./updater.sh
+###############################################################################
 #!/bin/bash
 
 # Конфигурация
-MIKROTIK_IP=""   # IP-адрес MikroTik
-MIKROTIK_USER=""        # Имя пользователя MikroTik
-MIKROTIK_PASSWORD="" # Пароль пользователя MikroTik
+MIKROTIK_IP=""
+MIKROTIK_USER=""
+MIKROTIK_PASSWORD=""
 MIKROTIK_TARGET_PATH="/sata3/caps"
-ARCHITECTURE=("arm" "mipsbe") # Архитектуры
-CURRENT_DIR= # Текущая директория
-LOG_FILE="$CURRENT_DIR/update_log.txt" # Файл для логирования
+ARCHITECTURE=("arm" "mipsbe")
+CURRENT_DIR=""
+LOG_FILE="$CURRENT_DIR/update_log.txt"
 
 log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
