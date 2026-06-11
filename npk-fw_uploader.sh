@@ -1,3 +1,4 @@
+#!/bin/bash
 ###############################################################################
 # НАЗНАЧЕНИЕ: Автоматическое скачивание и загрузка обновлений RouterOS на MikroTik.
 #
@@ -11,10 +12,9 @@
 # ТРЕБОВАНИЯ И ЗАПУСК (Debian):
 # 1. Зависимости: apt install sshpass curl unzip
 # 2. Редактирование: mcedit updater.sh (заполнить блок "Конфигурация" ниже)
-# 3. Права: chmod +x updater.sh
+# 3. Права: chmod 700 updater.sh
 # 4. Запуск: ./updater.sh
 ###############################################################################
-#!/bin/bash
 
 # Конфигурация
 MIKROTIK_IP=""
@@ -22,7 +22,7 @@ MIKROTIK_USER=""
 MIKROTIK_PASSWORD=""
 MIKROTIK_TARGET_PATH="/sata3/caps"
 ARCHITECTURE=("arm" "mipsbe")
-CURRENT_DIR=""
+CURRENT_DIR="/mnt/md0/backup/mikrotiks/npk-download"
 LOG_FILE="$CURRENT_DIR/update_log.txt"
 
 log() {
@@ -33,6 +33,12 @@ log() {
 get_mikrotik_version() {
     sshpass -p "$MIKROTIK_PASSWORD" ssh -o StrictHostKeyChecking=no "$MIKROTIK_USER@$MIKROTIK_IP" \
         ':put [/system resource get version]' 2>/dev/null | tr -d '\r' | cut -d' ' -f1
+}
+
+# Проверка существования файла на MikroTik через FTP
+check_mikrotik_file_exists() {
+    local filename=$1
+    curl -sI -u "$MIKROTIK_USER:$MIKROTIK_PASSWORD" "ftp://$MIKROTIK_IP$MIKROTIK_TARGET_PATH/$filename" >/dev/null 2>&1
 }
 
 upload_to_mikrotik_ftp() {
@@ -46,7 +52,7 @@ if [ -z "$MIKROTIK_VERSION" ]; then
     exit 1
 fi
 
-log "MikroTik version: $MIKROTIK_VERSION"
+log "MicroTik version: $MIKROTIK_VERSION"
 
 for arch in "${ARCHITECTURE[@]}"; do
     ARCH_DIR="$CURRENT_DIR/$arch"
@@ -56,7 +62,7 @@ for arch in "${ARCHITECTURE[@]}"; do
     MAIN_NPK_FILE="$ARCH_DIR/routeros-$MIKROTIK_VERSION-$arch.npk"
 
     # 1. Проверка и скачивание extra-пакетов
-    if [ ! -f "$EXTRA_ZIP_FILE" ] || [ -z "$(find "$ARCH_DIR" -maxdepth 1 -name "*.npk" ! -name "routeros-*" 2>/dev/null)" ]; then
+    if [ ! -f "$EXTRA_ZIP_FILE" ]; then
         EXTRA_ZIP_URL="https://download.mikrotik.com/routeros/$MIKROTIK_VERSION/all_packages-$arch-$MIKROTIK_VERSION.zip"
         log "downloading extra packages from $EXTRA_ZIP_URL"
         
@@ -84,30 +90,40 @@ for arch in "${ARCHITECTURE[@]}"; do
         log "main package $MAIN_NPK_FILE already exists. Skipping download."
     fi
 
-    # 3. Загрузка основного пакета
-    log "uploading main package to MikroTik: $MAIN_NPK_FILE"
-    if upload_to_mikrotik_ftp "$MAIN_NPK_FILE"; then
-        log "main package uploaded successfully"
+    # 3. Загрузка основного пакета с проверкой дубликатов
+    MAIN_FILENAME=$(basename "$MAIN_NPK_FILE")
+    if check_mikrotik_file_exists "$MAIN_FILENAME"; then
+        log "main package $MAIN_FILENAME already exists on MikroTik. Skipping upload."
     else
-        log "error: failed to upload main package"
+        log "uploading main package to MikroTik: $MAIN_NPK_FILE"
+        if upload_to_mikrotik_ftp "$MAIN_NPK_FILE"; then
+            log "main package uploaded successfully"
+        else
+            log "error: failed to upload main package"
+        fi
     fi
 
-    # 4. Загрузка дополнительных пакетов
+    # 4. Загрузка дополнительных пакетов с проверкой дубликатов
     log "uploading extra npk files to MikroTik..."
     for file in "$ARCH_DIR"/*.npk; do
         if [ -f "$file" ] && [ "$file" != "$MAIN_NPK_FILE" ]; then
-            log "uploading $file"
-            if upload_to_mikrotik_ftp "$file"; then
-                log "upload successful: $(basename "$file")"
+            EXTRA_FILENAME=$(basename "$file")
+            if check_mikrotik_file_exists "$EXTRA_FILENAME"; then
+                log "file $EXTRA_FILENAME already exists on MikroTik. Skipping upload."
             else
-                log "error: failed to upload $(basename "$file")"
+                log "uploading $file"
+                if upload_to_mikrotik_ftp "$file"; then
+                    log "upload successful: $EXTRA_FILENAME"
+                else
+                    log "error: failed to upload $EXTRA_FILENAME"
+                fi
             fi
         fi
     done
 
     # 5. Очистка старых версий
     log "cleaning up old versions for $arch..."
-    find "$ARCH_DIR" -type f ! -name "*$MIKROTIK_VERSION*" -delete
+    find "$ARCH_DIR" -type f \( -name "all_packages-*" -o -name "routeros-*" \) ! -name "*$MIKROTIK_VERSION*" -delete
 
 done
 
