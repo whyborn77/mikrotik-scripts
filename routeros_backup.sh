@@ -1,10 +1,11 @@
 #!/bin/sh
-
+#запускать коммандой routeros_backup.sh <routername> <sshhost> <sshport>
+# или создать исполняемый скрипт с перечнем нужных железок.
 routername=$1
 sshhost=$2
 sshport=$3
-sshuser="<USERNAME>"
-sshpassword="<STRONGPASSWORD>"
+sshuser=""
+sshpassword=""
 
 # Единая переменная пути
 backup_root="/mnt/md0/backup/mikrotiks"
@@ -60,9 +61,9 @@ fi
 mv -f "$current_export_name" "$precedent_export_name" 2>/dev/null
 rm -f "$diff_export_name" 2>/dev/null
 
-# БЕЗОПАСНАЯ ОЧИСТКА: Ищем файлы старше 180 дней ТОЛЬКО внутри директорий history
+# БЕЗОПАСНАЯ ОЧИСТКА: Ищем файлы старше 365 дней ТОЛЬКО внутри директорий history
 find "$backup_root" -type d -name "history" 2>/dev/null | while read -r history_dir; do
-    find "$history_dir" -type f -mtime +180 2>/dev/null | while read -r file; do
+    find "$history_dir" -type f -mtime +365 2>/dev/null | while read -r file; do
         # Извлекаем день месяца и удаляем ведущий ноль (01 -> 1) для корректного сравнения в shell
         file_day=$(stat -c %y "$file" 2>/dev/null | cut -d' ' -f1 | cut -d'-' -f3 | sed 's/^0//')
         
