@@ -1,4 +1,4 @@
-# microtik-scripts
+# MikroTik -scripts
 моя скромная попытка в код routeros
 
 # шаблон шидулера
