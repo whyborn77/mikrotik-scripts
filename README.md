@@ -37,7 +37,7 @@ Bash-скрипт для автоматического скачивания о�
   ```bash
   apt install sshpass curl unzip
 
-##Пользователь MikroTik с правами на:
-SSH: чтение /system resource;
-FTP: запись в MIKROTIK_TARGET_PATH;
-SSH: удаление файлов в MIKROTIK_TARGET_PATH.
+## Пользователь MikroTik с правами на:
+- SSH: чтение /system resource
+- FTP: запись в MIKROTIK_TARGET_PATH
+- SSH: удаление файлов в MIKROTIK_TARGET_PATH.
